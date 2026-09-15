@@ -75,7 +75,7 @@ export function renderSwimlaneSvg(
   const laneBorder = theme.laneBorder ?? "var(--_node-stroke)";
   const separator = theme.laneSeparator ?? laneBorder;
   const headerFill = theme.laneHeaderBackground ?? "var(--_group-hdr)";
-  const headerText = theme.laneHeaderText ?? "var(--_text-sec)";
+  const headerText = theme.laneHeaderText ?? "var(--_text)";
   const open = svgOpenTag(layout.width, layout.height, colors, transparent).replace(
     "<svg ",
     '<svg role="img" data-diagram-type="swimlane" ',
@@ -131,7 +131,8 @@ export function renderSwimlaneSvg(
       `<path class="edge" data-edge-id="${escapeXml(edge.id)}" data-from="${escapeXml(edge.source)}" data-to="${escapeXml(edge.target)}" d="${d}" fill="none" stroke="var(--_line)" stroke-width="${width}"${dash}${marker}/>`,
     );
     if (edge.label) {
-      const metrics = measureMultilineText(edge.label, FONT_SIZES.edgeLabel, FONT_WEIGHTS.edgeLabel);
+      const edgeLabelWeight = 500;
+      const metrics = measureMultilineText(edge.label, FONT_SIZES.edgeLabel, edgeLabelWeight);
       const mid = edge.labelBox
         ? { x: edge.labelBox.x + edge.labelBox.width / 2, y: edge.labelBox.y + edge.labelBox.height / 2 }
         : edge.points[Math.floor(edge.points.length / 2)]!;
@@ -145,7 +146,7 @@ export function renderSwimlaneSvg(
           metrics.height,
           FONT_SIZES.edgeLabel,
           8,
-          `text-anchor="middle" font-size="${FONT_SIZES.edgeLabel}" font-weight="${FONT_WEIGHTS.edgeLabel}" fill="var(--_text-sec)"`,
+          `text-anchor="middle" font-size="${FONT_SIZES.edgeLabel}" font-weight="${edgeLabelWeight}" fill="var(--_text)"`,
           `rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1"`,
         ),
         `</g>`,

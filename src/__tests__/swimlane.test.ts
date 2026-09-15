@@ -102,6 +102,35 @@ function parseNodeBoxes(svg: string): { id: string; box: { x: number; y: number;
 }
 
 describe("swimlane-beta", () => {
+  test("LR lanes sit along x with a header on each lane top", () => {
+    const layout = layoutSwimlane(parseSwimlane(sample("LR")).diagram);
+    expect(layout.direction).toBe("LR");
+    const xs = layout.lanes.map((lane) => lane.box.x);
+    expect(xs[0]!).toBeLessThan(xs[1]!);
+    for (const lane of layout.lanes) {
+      expect(lane.headerBox.y).toBe(lane.box.y);
+      expect(lane.headerBox.x).toBe(lane.box.x);
+      expect(lane.headerBox.width).toBeCloseTo(lane.box.width, 5);
+      expect(lane.headerBox.height).toBeGreaterThan(0);
+      expect(lane.headerBox.height).toBeLessThan(lane.box.height);
+    }
+  });
+
+  test("TB lanes sit along y with a full-width header on each row", () => {
+    const layout = layoutSwimlane(parseSwimlane(sample("TB")).diagram);
+    expect(layout.direction).toBe("TB");
+    const ys = layout.lanes.map((lane) => lane.box.y);
+    expect(ys[0]!).toBeLessThan(ys[1]!);
+    const maxWidth = Math.max(...layout.lanes.map((lane) => lane.box.width));
+    for (const lane of layout.lanes) {
+      expect(lane.headerBox.y).toBe(lane.box.y);
+      expect(lane.headerBox.x).toBe(lane.box.x);
+      expect(lane.headerBox.width).toBeCloseTo(lane.box.width, 5);
+      expect(lane.headerBox.width).toBeGreaterThan(maxWidth * 0.8);
+      expect(lane.headerBox.height).toBeGreaterThan(0);
+    }
+  });
+
   test("parser keeps Japanese labels and chain edge labels", () => {
     const parsed = parseSwimlane(`swimlane-beta TB
 subgraph process [処理レーン]

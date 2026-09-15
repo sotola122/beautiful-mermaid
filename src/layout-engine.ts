@@ -207,7 +207,13 @@ function mermaidToElk(
       'elk.layered.thoroughness': String(DEFAULTS.thoroughness),
       'elk.layered.highDegreeNodes.treatment': 'true',
       'elk.layered.highDegreeNodes.threshold': '8',
-      'elk.layered.compaction.postCompaction.strategy': 'LEFT_RIGHT_CONSTRAINT_LOCKING',
+      // LEFT_RIGHT_CONSTRAINT_LOCKING post-compaction makes ELK emit NaN root
+      // height / child y under SEPARATE hierarchy handling when cross-hierarchy
+      // edges form a cycle (see integration test "direction override + cycle").
+      // It is a cosmetic pass, so drop it only for that mode.
+      ...(hasDirectionOverride
+        ? {}
+        : { 'elk.layered.compaction.postCompaction.strategy': 'LEFT_RIGHT_CONSTRAINT_LOCKING' }),
       'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
       'elk.layered.wrapping.strategy': 'OFF',
       // Use SEPARATE when subgraphs have direction overrides (enables proper direction handling)

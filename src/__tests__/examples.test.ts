@@ -32,6 +32,12 @@ describe("beautiful-mermaid examples", () => {
       expect(svg).toContain("<svg");
       expect(svg).toContain("</svg>");
       expect(svg).not.toContain("<script");
+      expect(svg).not.toMatch(/NaN|Infinity/);
+      const viewBox = svg.match(/\bviewBox="([^"]+)"/)?.[1]?.trim().split(/\s+/).map(Number);
+      expect(viewBox).toHaveLength(4);
+      expect(viewBox!.every(Number.isFinite)).toBe(true);
+      expect(viewBox![2]).toBeGreaterThan(0);
+      expect(viewBox![3]).toBeGreaterThan(0);
     });
   }
 });

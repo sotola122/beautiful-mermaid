@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+### Fixed
+- Drop ELK `postCompaction` under SEPARATE hierarchy handling so subgraph direction + cycles (OTA flowchart) stay finite
+- Shared `assertFiniteGeometry` after layout (`BM_E_NONFINITE_GEOMETRY`)
+- Swimlane header and edge-label contrast (`--_text`, edge weight 500)
+
 ## 1.2.0 — tep-hardware / sotola122 fork
 
 Origin: https://github.com/sotola122/beautiful-mermaid  

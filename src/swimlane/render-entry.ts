@@ -1,5 +1,6 @@
 import type { RenderOptions } from "../types.ts";
 import { DiagramRenderError } from "../errors.ts";
+import { assertFiniteGeometry } from "../geometry-guard.ts";
 import { layoutSwimlane } from "./layout.ts";
 import { parseSwimlane } from "./parser.ts";
 import { renderSwimlaneSvg } from "./renderer.ts";
@@ -19,6 +20,7 @@ export function renderSwimlaneSVG(
     throw new DiagramRenderError(errors[0]?.message ?? "swimlane parse failed", errors);
   }
   const layout = layoutSwimlane(parsed.diagram, { ...options, idPrefix });
+  assertFiniteGeometry(layout, "swimlane");
   return renderSwimlaneSvg(
     layout,
     { ...colors, swimlane: options.swimlane ?? colors.swimlane },

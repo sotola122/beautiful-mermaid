@@ -1,6 +1,6 @@
 {
   "name": "@sotola122/beautiful-mermaid",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "license": "MIT",
   "description": "Fork of beautiful-mermaid with swimlane-beta SVG. Packet and interface specs live in @sotola122/wireglyph and @sotola122/tessaline.",
   "type": "module",

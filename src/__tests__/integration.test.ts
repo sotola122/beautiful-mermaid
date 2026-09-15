@@ -516,3 +516,40 @@ describe('renderMermaidSVG – all shapes combined', () => {
     expect(svg).toContain('</svg>')
   })
 })
+
+// ============================================================================
+// Subgraph direction override + cycle (SOT-77 / ELK SEPARATE NaN regression)
+// ============================================================================
+
+describe('renderMermaidSVG – subgraph direction override', () => {
+  it('keeps finite geometry when SEPARATE hierarchy has cross-boundary cycles', () => {
+    const svg = renderMermaidSVG(`flowchart TB
+      subgraph Device [Device]
+        direction TB
+        Boot[Boot] --> App{valid?}
+        App -->|no| Recov[Recovery]
+      end
+      subgraph Host [Host]
+        direction LR
+        Build[Build] --> Sign[Sign]
+      end
+      Recov --> UART[UART]
+      UART --> Xfer[Stream]
+      Sign --> Xfer
+      Xfer --> Reset((Reset))
+      Reset --> Boot
+      Erase[Erase] --> Space{free?}
+      Space -->|no| Erase
+    `)
+
+    expect(svg).toContain('<svg')
+    expect(svg).not.toMatch(/NaN|Infinity/)
+    const viewBox = svg.match(/\bviewBox="([^"]+)"/)?.[1]?.trim().split(/\s+/).map(Number)
+    expect(viewBox).toHaveLength(4)
+    expect(viewBox!.every(Number.isFinite)).toBe(true)
+    expect(viewBox![2]).toBeGreaterThan(0)
+    expect(viewBox![3]).toBeGreaterThan(0)
+    expect(svg).toContain('>Boot</text>')
+    expect(svg).toContain('>Reset</text>')
+  })
+})

@@ -329,4 +329,11 @@ describe("swimlane SVG snapshot", () => {
       "Download",
     ]);
   });
+
+  test("firmware TB example is a stable SVG structure", () => {
+    const source = firmware.replace("swimlane LR", "swimlane TB");
+    const svg = renderMermaidSVG(source, { idPrefix: "snap-tb-" });
+    expect(svg).toMatchSnapshot();
+    expect(laneOrder(svg)).toEqual(["Device", "Server"]);
+  });
 });

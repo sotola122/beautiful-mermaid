@@ -52,6 +52,7 @@ import { detectExtendedKind, isWireglyphSource } from './detect.ts'
 import { detectRegistered, registerDiagram } from './diagram-registry.ts'
 import { swimlaneDiagramModule } from './swimlane/module.ts'
 import { DiagramRenderError } from './errors.ts'
+import { assertFiniteGeometry } from './geometry-guard.ts'
 
 registerDiagram(swimlaneDiagramModule)
 
@@ -165,27 +166,32 @@ export function renderMermaidSVG(
     case 'sequence': {
       const diagram = parseSequenceDiagram(lines)
       const positioned = layoutSequenceDiagram(diagram, options)
+      assertFiniteGeometry(positioned, 'sequence')
       return renderSequenceSvg(positioned, colors, font, transparent)
     }
     case 'class': {
       const diagram = parseClassDiagram(lines)
       const positioned = layoutClassDiagramSync(diagram, options)
+      assertFiniteGeometry(positioned, 'class')
       return renderClassSvg(positioned, colors, font, transparent)
     }
     case 'er': {
       const diagram = parseErDiagram(lines)
       const positioned = layoutErDiagramSync(diagram, options)
+      assertFiniteGeometry(positioned, 'er')
       return renderErSvg(positioned, colors, font, transparent)
     }
     case 'xychart': {
       const chart = parseXYChart(lines)
       const positioned = layoutXYChart(chart, options)
+      assertFiniteGeometry(positioned, 'xychart')
       return renderXYChartSvg(positioned, colors, font, transparent, options.interactive ?? false)
     }
     case 'flowchart':
     default: {
       const graph = parseMermaid(text)
       const positioned = layoutGraphSync(graph, options)
+      assertFiniteGeometry(positioned, 'flowchart')
       return renderSvg(positioned, colors, font, transparent)
     }
   }
