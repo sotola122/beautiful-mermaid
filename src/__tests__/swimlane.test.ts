@@ -440,4 +440,99 @@ describe("swimlane arrow attachment", () => {
       }
     }
   });
+
+  test("simple LR and TB chains attach at the expected side centers", () => {
+    const lr = layoutSwimlane(
+      parseSwimlane(`swimlane-beta LR
+subgraph laneA [A]
+  scan[scan] --> connect[connect]
+end
+`).diagram,
+    );
+    const tb = layoutSwimlane(
+      parseSwimlane(`swimlane-beta TB
+subgraph laneA [A]
+  scan[scan] --> connect[connect]
+end
+`).diagram,
+    );
+    const rl = layoutSwimlane(
+      parseSwimlane(`swimlane-beta RL
+subgraph laneA [A]
+  scan[scan] --> connect[connect]
+end
+`).diagram,
+    );
+    const bt = layoutSwimlane(
+      parseSwimlane(`swimlane-beta BT
+subgraph laneA [A]
+  scan[scan] --> connect[connect]
+end
+`).diagram,
+    );
+
+    const assertChain = (
+      layout: ReturnType<typeof layoutSwimlane>,
+      sourceSide: "N" | "S" | "E" | "W",
+      targetSide: "N" | "S" | "E" | "W",
+    ) => {
+      const byId = new Map(layout.nodes.map((node) => [node.id, node] as const));
+      const edge = layout.edges.find(
+        (item) => item.source === "scan" && item.target === "connect",
+      )!;
+      const source = byId.get("scan")!;
+      const target = byId.get("connect")!;
+      const start = edge.points[0]!;
+      const end = edge.points[edge.points.length - 1]!;
+      expect(nearestSide(source.box, start)).toBe(sourceSide);
+      expect(nearestSide(target.box, end)).toBe(targetSide);
+      const sourceCenter =
+        sourceSide === "E" || sourceSide === "W"
+          ? source.box.y + source.box.height / 2
+          : source.box.x + source.box.width / 2;
+      const targetCenter =
+        targetSide === "E" || targetSide === "W"
+          ? target.box.y + target.box.height / 2
+          : target.box.x + target.box.width / 2;
+      const sourcePos = sourceSide === "E" || sourceSide === "W" ? start.y : start.x;
+      const targetPos = targetSide === "E" || targetSide === "W" ? end.y : end.x;
+      const sourceSpan =
+        sourceSide === "E" || sourceSide === "W" ? source.box.height : source.box.width;
+      const targetSpan =
+        targetSide === "E" || targetSide === "W" ? target.box.height : target.box.width;
+      expect(Math.abs(sourcePos - sourceCenter) / sourceSpan).toBeLessThan(0.2);
+      expect(Math.abs(targetPos - targetCenter) / targetSpan).toBeLessThan(0.2);
+    };
+
+    assertChain(lr, "E", "W");
+    assertChain(tb, "S", "N");
+    assertChain(rl, "W", "E");
+    assertChain(bt, "N", "S");
+  });
+
+  test("feedback and self-loop edges stay outside node interiors", () => {
+    const layout = layoutSwimlane(parseSwimlane(richGraph("LR")).diagram);
+    const boxes = layout.nodes.map((node) => node.box);
+    for (const edge of layout.edges) {
+      const source = layout.nodes.find((node) => node.id === edge.source)!;
+      const target = layout.nodes.find((node) => node.id === edge.target)!;
+      const inner = boxes.filter(
+        (box) => box !== source.box && box !== target.box,
+      );
+      for (let i = 0; i < edge.points.length - 1; i += 1) {
+        const a = edge.points[i]!;
+        const b = edge.points[i + 1]!;
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        for (const box of inner) {
+          const inside =
+            mx > box.x + 1 &&
+            mx < box.x + box.width - 1 &&
+            my > box.y + 1 &&
+            my < box.y + box.height - 1;
+          expect(inside).toBe(false);
+        }
+      }
+    }
+  });
 });

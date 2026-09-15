@@ -15,7 +15,7 @@ import type {
   SwimlaneLayout,
   SwimlaneNode,
 } from "./types.ts";
-import { findOrthogonalPath, routeEdges, segmentHits, SWL_E_ROUTING } from "./routing.ts";
+import { routeEdges, SWL_E_ROUTING } from "./routing.ts";
 
 export const SWL_LAYOUT = {
   headerH: 36,
@@ -84,72 +84,21 @@ function collapse(points: readonly Point[]): Point[] {
     const prev = out[out.length - 1]!;
     const cur = points[i]!;
     const next = points[i + 1]!;
-    const colinear =
-      (Math.abs(prev.x - cur.x) < 0.05 && Math.abs(cur.x - next.x) < 0.05) ||
-      (Math.abs(prev.y - cur.y) < 0.05 && Math.abs(cur.y - next.y) < 0.05);
-    if (!colinear) out.push({ ...cur });
+    const colinearX =
+      Math.abs(prev.x - cur.x) < 0.05 && Math.abs(cur.x - next.x) < 0.05;
+    const colinearY =
+      Math.abs(prev.y - cur.y) < 0.05 && Math.abs(cur.y - next.y) < 0.05;
+    const between =
+      (colinearX &&
+        cur.y >= Math.min(prev.y, next.y) - 0.05 &&
+        cur.y <= Math.max(prev.y, next.y) + 0.05) ||
+      (colinearY &&
+        cur.x >= Math.min(prev.x, next.x) - 0.05 &&
+        cur.x <= Math.max(prev.x, next.x) + 0.05);
+    if (!between) out.push({ ...cur });
   }
   out.push({ ...points[points.length - 1]! });
   return out;
-}
-
-function edgePoints(edge: ElkExtendedEdge): Point[] {
-  const points: Point[] = [];
-  for (const section of edge.sections ?? []) {
-    points.push(roundPoint(section.startPoint));
-    for (const bend of section.bendPoints ?? []) points.push(roundPoint(bend));
-    points.push(roundPoint(section.endPoint));
-  }
-  return collapse(points);
-}
-
-function nearestOnBox(box: Box, point: Point): Point {
-  const left = box.x;
-  const right = box.x + box.width;
-  const top = box.y;
-  const bottom = box.y + box.height;
-  const cx = Math.max(left, Math.min(right, point.x));
-  const cy = Math.max(top, Math.min(bottom, point.y));
-  const dl = Math.abs(point.x - left);
-  const dr = Math.abs(point.x - right);
-  const dt = Math.abs(point.y - top);
-  const db = Math.abs(point.y - bottom);
-  const best = Math.min(dl, dr, dt, db);
-  if (best === dl) return roundPoint({ x: left, y: cy });
-  if (best === dr) return roundPoint({ x: right, y: cy });
-  if (best === dt) return roundPoint({ x: cx, y: top });
-  return roundPoint({ x: cx, y: bottom });
-}
-
-function extendToBox(box: Box, from: Point, toward: Point): Point {
-  const dx = toward.x - from.x;
-  const dy = toward.y - from.y;
-  if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) {
-    return nearestOnBox(box, toward);
-  }
-  const ts: number[] = [];
-  if (Math.abs(dx) > 0.05) {
-    ts.push((box.x - from.x) / dx);
-    ts.push((box.x + box.width - from.x) / dx);
-  }
-  if (Math.abs(dy) > 0.05) {
-    ts.push((box.y - from.y) / dy);
-    ts.push((box.y + box.height - from.y) / dy);
-  }
-  const hits = ts
-    .filter((t) => t >= 0)
-    .map((t) => ({ t, p: { x: from.x + dx * t, y: from.y + dy * t } }))
-    .filter(({ p }) =>
-      p.x >= box.x - 0.75 &&
-      p.x <= box.x + box.width + 0.75 &&
-      p.y >= box.y - 0.75 &&
-      p.y <= box.y + box.height + 0.75
-    )
-    .sort((a, b) => a.t - b.t);
-  return roundPoint(hits[0]?.p ?? {
-    x: Math.max(box.x, Math.min(box.x + box.width, from.x)),
-    y: Math.max(box.y, Math.min(box.y + box.height, from.y)),
-  });
 }
 
 function asFlowNode(node: PositionedNode): FlowNode {
@@ -235,71 +184,21 @@ function abutLanes(lanes: PositionedLane[], direction: SwimlaneDirection): Posit
   return next;
 }
 
-function pathChanged(before: readonly Point[], after: readonly Point[]): boolean {
-  if (before.length !== after.length) return true;
-  return before.some(
-    (point, index) => point.x !== after[index]?.x || point.y !== after[index]?.y,
-  );
-}
-
-function inflateBox(box: Box, pad: number): Box {
-  return {
-    x: box.x - pad,
-    y: box.y - pad,
-    width: box.width + pad * 2,
-    height: box.height + pad * 2,
-  };
-}
-
-function pathCrossesNodes(points: readonly Point[], boxes: readonly Box[]): boolean {
-  for (const box of boxes) {
-    const core = inflateBox(box, -2);
-    if (core.width <= 1 || core.height <= 1) continue;
-    for (let i = 0; i < points.length - 1; i += 1) {
-      if (segmentHits([core], points[i]!, points[i + 1]!)) return true;
-    }
+function isBackEdge(
+  direction: SwimlaneDirection,
+  source: PositionedNode,
+  target: PositionedNode,
+): boolean {
+  switch (direction) {
+    case "RL":
+      return target.box.x > source.box.x + source.box.width;
+    case "BT":
+      return target.box.y > source.box.y + source.box.height;
+    case "TB":
+      return target.box.y + target.box.height < source.box.y;
+    default:
+      return target.box.x + target.box.width < source.box.x;
   }
-  return false;
-}
-
-function rerouteAround(
-  points: Point[],
-  others: readonly Box[],
-  allBoxes: readonly Box[],
-): Point[] {
-  if (points.length < 2 || !pathCrossesNodes(points, others)) return points;
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const box of allBoxes) {
-    xs.push(box.x - 8, box.x, box.x + box.width / 2, box.x + box.width, box.x + box.width + 8);
-    ys.push(box.y - 8, box.y, box.y + box.height / 2, box.y + box.height, box.y + box.height + 8);
-  }
-  const alt = findOrthogonalPath(points[0]!, points[points.length - 1]!, others.map((box) => inflateBox(box, 4)), xs, ys);
-  if (alt && alt.length >= 2 && !pathCrossesNodes(alt, others)) return alt;
-  return points;
-}
-
-function selfLoopPoints(box: Box, others: readonly Box[]): Point[] {
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  for (const extra of [0, 16, 32, 48, 72]) {
-    const reach = 18 + extra;
-    const points = [
-      { x: box.x + box.width, y: cy },
-      { x: box.x + box.width + reach, y: cy },
-      { x: box.x + box.width + reach, y: box.y - reach },
-      { x: cx, y: box.y - reach },
-      { x: cx, y: box.y },
-    ].map(roundPoint);
-    if (!pathCrossesNodes(points, others)) return points;
-  }
-  return [
-    { x: box.x + box.width, y: cy },
-    { x: box.x + box.width + 24, y: cy },
-    { x: box.x + box.width + 24, y: box.y - 24 },
-    { x: cx, y: box.y - 24 },
-    { x: cx, y: box.y },
-  ].map(roundPoint);
 }
 
 function routingError(message: string): DiagramRenderError {
@@ -440,7 +339,6 @@ export function layoutSwimlane(
   });
   const lanes = abutLanes(equalizeLanes(rawLanes, diagram.direction), diagram.direction);
 
-  const elkEdges = new Map((result.edges ?? []).map((edge) => [edge.id, edge] as const));
   const draft: SwimlaneLayout = {
     width: result.width ?? 0,
     height: result.height ?? 0,
@@ -454,78 +352,20 @@ export function layoutSwimlane(
   for (const edge of diagram.edges) {
     const source = byId.get(edge.source);
     const target = byId.get(edge.target);
-    if (!source || !target) continue;
-    if (isColumnLanes(diagram.direction)) {
-      if (target.box.x + target.box.width < source.box.x) feedback.add(edge.id);
-    } else if (target.box.y + target.box.height < source.box.y) {
-      feedback.add(edge.id);
-    }
+    if (!source || !target || edge.source === edge.target) continue;
+    if (isBackEdge(diagram.direction, source, target)) feedback.add(edge.id);
   }
 
-  let reroutedEdges = 0;
-  const routed: RoutedEdge[] = diagram.edges.map((edge) => {
-    const elkEdge = elkEdges.get(edge.id);
+  const routedResult = routeEdges(diagram, draft, feedback);
+  const routed: RoutedEdge[] = routedResult.edges.map((edge) => {
     const source = byId.get(edge.source);
     const target = byId.get(edge.target);
-    const others = nodes
-      .filter((node) => node.id !== edge.source && node.id !== edge.target)
-      .map((node) => node.box);
-    if (edge.source === edge.target && source) {
-      let points = selfLoopPoints(source.box, others);
-      points = clipEdgeToShape(points, asFlowNode(source), true);
-      points = clipEdgeToShape(points, asFlowNode(source), false);
-      return { ...edge, points: collapse(points.map(roundPoint)) };
-    }
-    let points = elkEdge ? edgePoints(elkEdge) : [];
-    if (points.length < 2 && source && target) {
-      points = [
-        { x: source.box.x + source.box.width / 2, y: source.box.y + source.box.height / 2 },
-        { x: target.box.x + target.box.width / 2, y: target.box.y + target.box.height / 2 },
-      ];
-    }
-    if (source && points.length >= 2) {
-      points[0] = extendToBox(source.box, points[1]!, points[0]!);
-    }
-    if (target && points.length >= 2) {
-      points[points.length - 1] = extendToBox(target.box, points[points.length - 2]!, points[points.length - 1]!);
-    }
+    let points = [...edge.points];
     if (source) points = clipEdgeToShape(points, asFlowNode(source), true);
     if (target) points = clipEdgeToShape(points, asFlowNode(target), false);
-    const before = points.map((point) => ({ ...point }));
-    points = rerouteAround(points, others, nodes.map((node) => node.box));
-    if (source && target && pathCrossesNodes(points, others)) {
-      try {
-        const cleaned = routeEdges(
-          { ...diagram, edges: [edge] },
-          draft,
-          feedback,
-          24,
-        );
-        const alt = cleaned.edges[0]?.points;
-        if (alt && alt.length >= 2 && !pathCrossesNodes(alt, others)) {
-          points = [...alt];
-          reroutedEdges += 1;
-        }
-      } catch {
-        // Keep the ELK path when orthogonal cleanup cannot find a channel.
-      }
-    } else if (pathChanged(before, points)) {
-      reroutedEdges += 1;
-    }
-    if (source) points = clipEdgeToShape(points, asFlowNode(source), true);
-    if (target) points = clipEdgeToShape(points, asFlowNode(target), false);
-    let labelBox: Box | undefined;
-    const label = elkEdge?.labels?.[0];
-    if (edge.label && label && label.x != null && label.y != null) {
-      labelBox = {
-        x: round(label.x),
-        y: round(label.y),
-        width: round(label.width ?? 0),
-        height: round(label.height ?? 0),
-      };
-    }
-    return { ...edge, points: collapse(points.map(roundPoint)), labelBox };
+    return { ...edge, points: collapse(points.map(roundPoint)) };
   });
+  const reroutedEdges = routedResult.reroutedEdges;
 
   const xs = [result.width ?? 0];
   const ys = [result.height ?? 0];

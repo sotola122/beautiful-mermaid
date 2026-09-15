@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2
+
+### Fixed
+- Route swimlane edges from side-center ports through the existing orthogonal router so LR/TB chains no longer start at box corners
+
 ## 1.2.1
 
 ### Fixed

@@ -59,7 +59,8 @@ and rerun existing 6-type tests plus Packet, Swimlane, and Interface regressions
 ## Packet / interface split
 
 Packet fixtures and the Packet SVG pipeline live in `@sotola122/wireglyph`.
-Interface Spec HTML/SVG live in `@sotola122/tessaline`. This package throws
+Interface Spec HTML is the default PDF path in `@sotola122/tessaline`. SVG is a
+single-operation preview. This package throws
 `BM_E_ROUTE_WIREGYPH` (and ASCII `BM_E_ASCII_UNSUPPORTED`) for packet,
 packet-beta, registermap, memorymap, and heuristic Packet DSL sources.
 

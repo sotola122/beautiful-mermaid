@@ -105,6 +105,19 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function flowSides(direction: SwimlaneLayout["direction"]): { from: Side; to: Side } {
+  switch (direction) {
+    case "RL":
+      return { from: "W", to: "E" };
+    case "BT":
+      return { from: "N", to: "S" };
+    case "TB":
+      return { from: "S", to: "N" };
+    default:
+      return { from: "E", to: "W" };
+  }
+}
+
 function facingSides(from: Box, to: Box): { from: Side; to: Side } {
   const dx = to.x + to.width / 2 - (from.x + from.width / 2);
   const dy = to.y + to.height / 2 - (from.y + from.height / 2);
@@ -112,6 +125,18 @@ function facingSides(from: Box, to: Box): { from: Side; to: Side } {
     return dx >= 0 ? { from: "E", to: "W" } : { from: "W", to: "E" };
   }
   return dy >= 0 ? { from: "S", to: "N" } : { from: "N", to: "S" };
+}
+
+function chainSides(
+  direction: SwimlaneLayout["direction"],
+  source: PositionedNode,
+  target: PositionedNode,
+  feedback: boolean,
+): { from: Side; to: Side } {
+  const flow = flowSides(direction);
+  if (feedback) return { from: flow.to, to: flow.from };
+  if (source.laneId === target.laneId) return flow;
+  return facingSides(source.box, target.box);
 }
 
 function sidePort(box: Box, side: Side, shape: string, shift = 0): Point {
@@ -189,10 +214,18 @@ function collapse(points: readonly Point[]): Point[] {
     const prev = out[out.length - 1]!;
     const cur = points[i]!;
     const next = points[i + 1]!;
-    const colinear =
-      (Math.abs(prev.x - cur.x) < 0.05 && Math.abs(cur.x - next.x) < 0.05) ||
-      (Math.abs(prev.y - cur.y) < 0.05 && Math.abs(cur.y - next.y) < 0.05);
-    if (!colinear) out.push({ ...cur });
+    const colinearX =
+      Math.abs(prev.x - cur.x) < 0.05 && Math.abs(cur.x - next.x) < 0.05;
+    const colinearY =
+      Math.abs(prev.y - cur.y) < 0.05 && Math.abs(cur.y - next.y) < 0.05;
+    const between =
+      (colinearX &&
+        cur.y >= Math.min(prev.y, next.y) - 0.05 &&
+        cur.y <= Math.max(prev.y, next.y) + 0.05) ||
+      (colinearY &&
+        cur.x >= Math.min(prev.x, next.x) - 0.05 &&
+        cur.x <= Math.max(prev.x, next.x) + 0.05);
+    if (!between) out.push({ ...cur });
   }
   out.push({ ...points[points.length - 1]! });
   return out;
@@ -331,6 +364,44 @@ export function findOrthogonalPath(
   return collapse(points);
 }
 
+function nearbyObstacles(
+  layout: SwimlaneLayout,
+  source: PositionedNode,
+  target: PositionedNode,
+  extraGutter: number,
+): readonly PositionedNode[] {
+  const pad = CLEAR + extraGutter + 48;
+  const left = Math.min(source.box.x, target.box.x) - pad;
+  const top = Math.min(source.box.y, target.box.y) - pad;
+  const union: Box = {
+    x: left,
+    y: top,
+    width: Math.max(source.box.x + source.box.width, target.box.x + target.box.width) - left + pad,
+    height: Math.max(source.box.y + source.box.height, target.box.y + target.box.height) - top + pad,
+  };
+  const hits = layout.nodes.filter(
+    (node) =>
+      node.id !== source.id &&
+      node.id !== target.id &&
+      overlaps(node.box, union),
+  );
+  if (hits.length <= 16) return hits;
+  const sx = source.box.x + source.box.width / 2;
+  const sy = source.box.y + source.box.height / 2;
+  const tx = target.box.x + target.box.width / 2;
+  const ty = target.box.y + target.box.height / 2;
+  const dist = (node: PositionedNode): number => {
+    const nx = node.box.x + node.box.width / 2;
+    const ny = node.box.y + node.box.height / 2;
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((nx - sx) * dx + (ny - sy) * dy) / len2));
+    return Math.hypot(nx - (sx + dx * t), ny - (sy + dy * t));
+  };
+  return [...hits].sort((a, b) => dist(a) - dist(b)).slice(0, 16);
+}
+
 function channelAxes(
   layout: SwimlaneLayout,
   source: PositionedNode,
@@ -343,7 +414,7 @@ function channelAxes(
     xs.push(lane.box.x, lane.box.x + lane.box.width);
     ys.push(lane.headerBox.y + lane.headerBox.height + CLEAR);
   }
-  for (const node of [source, target]) {
+  for (const node of [source, target, ...nearbyObstacles(layout, source, target, extraGutter)]) {
     xs.push(
       node.box.x - CLEAR,
       node.box.x + node.box.width / 2,
@@ -380,19 +451,117 @@ function selfLoop(
   box: Box,
   offset: number,
   obstacles: readonly Box[],
-): Point[] | null {
-  for (const extra of [0, 12, 24, 40]) {
-    const reach = LOOP + Math.abs(offset) + extra;
-    const points = [
-      { x: box.x + box.width, y: box.y + box.height / 2 + offset },
-      { x: box.x + box.width + reach, y: box.y + box.height / 2 + offset },
+): Point[] {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const variants = (reach: number): Point[][] => [
+    [
+      { x: box.x + box.width, y: cy + offset },
+      { x: box.x + box.width + reach, y: cy + offset },
       { x: box.x + box.width + reach, y: box.y - reach },
-      { x: box.x + box.width / 2, y: box.y - reach },
-      { x: box.x + box.width / 2, y: box.y },
-    ];
-    if (!pathHits(obstacles, points)) return points;
+      { x: cx, y: box.y - reach },
+      { x: cx, y: box.y },
+    ],
+    [
+      { x: box.x + box.width, y: cy + offset },
+      { x: box.x + box.width + reach, y: cy + offset },
+      { x: box.x + box.width + reach, y: box.y + box.height + reach },
+      { x: cx, y: box.y + box.height + reach },
+      { x: cx, y: box.y + box.height },
+    ],
+    [
+      { x: box.x, y: cy + offset },
+      { x: box.x - reach, y: cy + offset },
+      { x: box.x - reach, y: box.y - reach },
+      { x: cx, y: box.y - reach },
+      { x: cx, y: box.y },
+    ],
+    [
+      { x: box.x, y: cy + offset },
+      { x: box.x - reach, y: cy + offset },
+      { x: box.x - reach, y: box.y + box.height + reach },
+      { x: cx, y: box.y + box.height + reach },
+      { x: cx, y: box.y + box.height },
+    ],
+  ];
+  let fallback = variants(LOOP + Math.abs(offset) + 72)[1]!;
+  for (const extra of [0, 12, 24, 40, 72]) {
+    const reach = LOOP + Math.abs(offset) + extra;
+    for (const points of variants(reach)) {
+      fallback = points;
+      if (!pathHits(obstacles, points)) return points;
+    }
   }
-  return null;
+  return fallback;
+}
+
+function hullFallback(
+  sp: Point,
+  from: Side,
+  tp: Point,
+  to: Side,
+  obstacles: readonly Box[],
+  extra: number,
+): Point[] {
+  const xs = [sp.x, tp.x, ...obstacles.flatMap((box) => [box.x, box.x + box.width])];
+  const ys = [sp.y, tp.y, ...obstacles.flatMap((box) => [box.y, box.y + box.height])];
+  const left = Math.min(...xs) - CLEAR - extra;
+  const right = Math.max(...xs) + CLEAR + extra;
+  const top = Math.min(...ys) - CLEAR - extra;
+  const bottom = Math.max(...ys) + CLEAR + extra;
+  const sStub = outerStub(sp, from);
+  const tStub = outerStub(tp, to);
+  const ring: Point[] = [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: right, y: bottom },
+    { x: left, y: bottom },
+  ];
+  const candidates: Point[][] = [];
+  for (let i = 0; i < ring.length; i += 1) {
+    const a = ring[i]!;
+    const b = ring[(i + 1) % ring.length]!;
+    const c = ring[(i + 2) % ring.length]!;
+    candidates.push(
+      collapse([
+        sp,
+        sStub,
+        { x: a.x, y: sStub.y },
+        a,
+        b,
+        { x: b.x, y: tStub.y },
+        tStub,
+        tp,
+      ]),
+      collapse([
+        sp,
+        sStub,
+        { x: a.x, y: sStub.y },
+        a,
+        b,
+        c,
+        { x: c.x, y: tStub.y },
+        tStub,
+        tp,
+      ]),
+    );
+  }
+  let best = candidates[0]!;
+  let bestLen = Infinity;
+  for (const points of candidates) {
+    if (pathHits(obstacles, points)) continue;
+    let len = 0;
+    for (let i = 0; i < points.length - 1; i += 1) {
+      len +=
+        Math.abs(points[i + 1]!.x - points[i]!.x) +
+        Math.abs(points[i + 1]!.y - points[i]!.y);
+    }
+    if (len < bestLen) {
+      best = points;
+      bestLen = len;
+    }
+  }
+  return best;
 }
 
 function labelCandidates(
@@ -434,6 +603,24 @@ export function routeEdges(
   const byId = new Map(layout.nodes.map((node) => [node.id, node] as const));
   const pairCount = new Map<string, number>();
   const pairSeen = new Map<string, number>();
+  const sideCount = new Map<string, number>();
+  const sideSeen = new Map<string, number>();
+  const planned = diagram.edges.map((edge) => {
+    const source = byId.get(edge.source);
+    const target = byId.get(edge.target);
+    if (!source || !target) {
+      throw routingError(`Missing endpoint for ${edge.id}`, edge.span.line);
+    }
+    const sides =
+      edge.source === edge.target
+        ? { from: "E" as Side, to: "N" as Side }
+        : chainSides(layout.direction, source, target, feedback.has(edge.id));
+    const sourceKey = `${source.id}:${sides.from}`;
+    const targetKey = `${target.id}:${sides.to}`;
+    sideCount.set(sourceKey, (sideCount.get(sourceKey) ?? 0) + 1);
+    sideCount.set(targetKey, (sideCount.get(targetKey) ?? 0) + 1);
+    return { edge, source, target, sides, sourceKey, targetKey };
+  });
   for (const edge of diagram.edges) {
     const key = `${edge.source}->${edge.target}`;
     pairCount.set(key, (pairCount.get(key) ?? 0) + 1);
@@ -443,20 +630,25 @@ export function routeEdges(
   const routed: RoutedEdge[] = [];
   let reroutedEdges = 0;
 
-  for (const edge of diagram.edges) {
-    const source = byId.get(edge.source);
-    const target = byId.get(edge.target);
-    if (!source || !target) {
-      throw routingError(`Missing endpoint for ${edge.id}`, edge.span.line);
-    }
+  for (const item of planned) {
+    const { edge, source, target, sides, sourceKey, targetKey } = item;
     const key = `${edge.source}->${edge.target}`;
     const index = pairSeen.get(key) ?? 0;
     pairSeen.set(key, index + 1);
-    const offset = (index - ((pairCount.get(key) ?? 1) - 1) / 2) * PARALLEL;
+    const sourceIndex = sideSeen.get(sourceKey) ?? 0;
+    sideSeen.set(sourceKey, sourceIndex + 1);
+    const targetIndex = sideSeen.get(targetKey) ?? 0;
+    sideSeen.set(targetKey, targetIndex + 1);
+    const pairOffset = (index - ((pairCount.get(key) ?? 1) - 1) / 2) * PARALLEL;
+    const sourceSpread = (sideCount.get(sourceKey) ?? 1) > 1
+      ? (sourceIndex - ((sideCount.get(sourceKey) ?? 1) - 1) / 2) * PARALLEL
+      : 0;
+    const targetSpread = (sideCount.get(targetKey) ?? 1) > 1
+      ? (targetIndex - ((sideCount.get(targetKey) ?? 1) - 1) / 2) * PARALLEL
+      : 0;
     const ignore = new Set([source.id, target.id]);
     const others = [
       ...layout.nodes.filter((node) => !ignore.has(node.id)).map((node) => inflate(node.box)),
-      ...layout.lanes.map((lane) => inflate(lane.headerBox, 4)),
       ...placedLabels,
     ];
     const keepOut = [
@@ -466,19 +658,15 @@ export function routeEdges(
     ];
 
     if (edge.source === edge.target) {
-      const points = selfLoop(source.box, offset, others);
-      if (!points) {
-        throw routingError(`No self-loop route for ${edge.id}`, edge.span.line);
-      }
+      const points = selfLoop(source.box, pairOffset, others);
       const labelBox = placeLabel(points, edge.label, others);
       if (labelBox) placedLabels.push(labelBox);
       routed.push({ ...edge, points, labelBox });
       continue;
     }
 
-    const sides = facingSides(source.box, target.box);
-    const sp = roundPoint(sidePort(source.box, sides.from, source.shape, offset));
-    const tp = roundPoint(sidePort(target.box, sides.to, target.shape, offset));
+    const sp = roundPoint(sidePort(source.box, sides.from, source.shape, pairOffset + sourceSpread));
+    const tp = roundPoint(sidePort(target.box, sides.to, target.shape, pairOffset + targetSpread));
     const sStub = roundPoint(outerStub(sp, sides.from));
     const tStub = roundPoint(outerStub(tp, sides.to));
     let gutter = extraGutter;
@@ -494,18 +682,19 @@ export function routeEdges(
       if (!points || pathHits(others, points)) return null;
       return points;
     };
-    let points = tryRoute(gutter);
-    if (!points) {
-      points = tryRoute(gutter + 24);
-      if (points) reroutedEdges += 1;
+    let points: Point[] | null = null;
+    for (const gutterPad of [gutter, gutter + 24, gutter + 48, gutter + 80]) {
+      points = tryRoute(gutterPad);
+      if (points) {
+        if (gutterPad > gutter) reroutedEdges += 1;
+        break;
+      }
     }
     if (!points) {
-      throw routingError(`No obstacle-free route for ${edge.id}`, edge.span.line);
+      points = hullFallback(sp, sides.from, tp, sides.to, others, Math.max(gutter, 28));
+      reroutedEdges += 1;
     }
     const labelBox = placeLabel(points, edge.label, others);
-    if (edge.label && !labelBox) {
-      throw routingError(`No label space for ${edge.id}`, edge.span.line);
-    }
     if (labelBox) placedLabels.push(labelBox);
     routed.push({ ...edge, points, labelBox });
   }
