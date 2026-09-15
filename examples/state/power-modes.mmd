@@ -1,0 +1,20 @@
+stateDiagram-v2
+  [*] --> Run
+  Run --> Sleep : WFI / no radio
+  Sleep --> Run : RTC / GPIO
+  Run --> DeepSleep : idle > 30s
+  DeepSleep --> Run : RTC wakeup
+  Run --> RadioRx : BLE advertising window
+  RadioRx --> Run : window end
+  RadioRx --> RadioTx : notify pending
+  RadioTx --> Run : TX complete
+  DeepSleep --> Off : Vbat < 2.8V
+  Off --> [*]
+
+  state Run {
+    [*] --> AppLoop
+    AppLoop --> Sample : 1 Hz tick
+    Sample --> AppLoop
+    AppLoop --> Publish : queue not empty
+    Publish --> AppLoop
+  }

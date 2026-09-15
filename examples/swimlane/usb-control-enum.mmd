@@ -1,0 +1,40 @@
+%% USB FS enumeration then vendor IN control transfer.
+swimlane TB
+lane Host "USB host stack"
+  reset([bus reset])
+  getDev[GET_DESCRIPTOR device]
+  setAddr[SET_ADDRESS 7]
+  getCfg[GET_DESCRIPTOR config]
+  setCfg[SET_CONFIGURATION 1]
+  vendorIn[vendor IN 0xC0]
+lane Rom "Device ROM / EP0"
+  pullUp([D+ pull-up])
+  ep0Dev[EP0 IN 18 bytes]
+  status1[status stage]
+  ep0Cfg[EP0 IN config]
+  status2[status stage]
+  ep0Vendor[EP0 IN payload]
+lane Firmware "Application"
+  init[init clocks]
+  configured{configured?}
+  fill[fill vendor buffer]
+reset --> getDev
+getDev --> setAddr
+setAddr --> getCfg
+getCfg --> setCfg
+setCfg --> vendorIn
+pullUp --> ep0Dev
+ep0Dev --> status1
+status1 --> ep0Cfg
+ep0Cfg --> status2
+status2 --> ep0Vendor
+init --> configured
+configured -->|yes| fill
+reset -> pullUp
+getDev -> ep0Dev
+setAddr -> status1
+getCfg -> ep0Cfg
+setCfg -> status2
+vendorIn -> ep0Vendor
+setCfg -> configured
+fill -> ep0Vendor

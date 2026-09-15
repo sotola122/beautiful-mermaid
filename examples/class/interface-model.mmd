@@ -1,0 +1,44 @@
+classDiagram
+  class InterfaceSpec {
+    +apiVersion : string
+    +info : Info
+    +servers : Server[]
+    +operations : Operation[]
+  }
+  class Operation {
+    +operationId : string
+    +pattern : Pattern
+    +address : Address
+    +messages : Messages
+    +security : Security[]
+  }
+  class Address {
+    +kind : Kind
+    +method : string
+    +path : string
+    +topic : string
+    +uuid : string
+  }
+  class Messages {
+    +request : Payload
+    +response : Payload
+    +notification : Payload
+  }
+  class Payload {
+    +contentType : string
+    +schema : object
+  }
+  class BindingMqtt {
+    +qos : int
+    +retain : bool
+  }
+  class BindingBle {
+    +characteristic : string
+    +properties : string[]
+  }
+  InterfaceSpec "1" *-- "*" Operation
+  Operation *-- Address
+  Operation *-- Messages
+  Messages o-- Payload
+  Operation o-- BindingMqtt
+  Operation o-- BindingBle

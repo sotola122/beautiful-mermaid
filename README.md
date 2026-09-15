@@ -13,6 +13,8 @@ Interface Spec HTML/SVG tables live in `@sotola122/tessaline`.
 
 See `FORK.md` and `CHANGELOG.md`. Published name is scoped; do not publish as unscoped `beautiful-mermaid`.
 
+Complex flowchart / sequence / state / class / ER / XY / swimlane samples live in [`examples/`](./examples/). `src/__tests__/examples.test.ts` renders every `*.mmd` file.
+
 </div>
 
 ---

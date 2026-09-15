@@ -1,0 +1,41 @@
+%% MQTT OTA: retained offer, chunk stream, CRC, reboot.
+swimlane-beta LR
+subgraph Cloud [Cloud broker]
+  pubOffer([PUBLISH ota/offer])
+  pubChunk1[PUBLISH chunk 0]
+  pubChunk2[PUBLISH chunk 1]
+  recvAck[recv ACK corr c-42]
+end
+subgraph Gateway [Linux gateway]
+  subOffer[SUBSCRIBE ota/offer]
+  fwd1[forward chunk 0]
+  fwd2[forward chunk 1]
+  pubAck[PUBLISH ack]
+end
+subgraph Device [Device firmware]
+  onOffer{HMAC ok?}
+  erase[erase inactive slot]
+  write1[write chunk 0]
+  write2[write chunk 1]
+  crc[CRC32]
+  reboot([warm reset])
+end
+pubOffer --> pubChunk1
+pubChunk1 --> pubChunk2
+pubChunk2 --> recvAck
+subOffer --> fwd1
+fwd1 --> fwd2
+fwd2 --> pubAck
+onOffer -->|yes| erase
+erase --> write1
+write1 --> write2
+write2 --> crc
+crc --> reboot
+pubOffer --> subOffer
+subOffer --> onOffer
+pubChunk1 --> fwd1
+fwd1 --> write1
+pubChunk2 --> fwd2
+fwd2 --> write2
+pubAck --> recvAck
+crc --> pubAck

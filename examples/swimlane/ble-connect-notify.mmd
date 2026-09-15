@@ -1,0 +1,51 @@
+%% BLE connect, CCCD subscribe, first notification, timeout path.
+swimlane LR
+lane App "Mobile App"
+  scan([scan UUID FE59])
+  connect[CONNECT_IND]
+  mtu[exchange MTU 247]
+  discover[discover 0x181A]
+  cccd{CCCD write ok?}
+  waitNotify[wait first notify]
+  onTemp[onNotify temperature]
+  timeout[5s timeout]
+  disconnect([disconnect])
+lane SoftDevice "nRF SoftDevice"
+  adv([ADV_IND])
+  accept[accept connection]
+  mtuRsp[MTU response]
+  attFind[ATT Find By Type]
+  cccdAck[CCCD ACK]
+  ntf[Handle Value NTF]
+  term[terminate]
+lane Sensor "Sensor application"
+  boot[boot]
+  sample[sample SHT40]
+  pack[pack 0x2A6E]
+  notify[notify]
+scan --> connect
+connect --> mtu
+mtu --> discover
+discover --> cccd
+cccd -->|yes| waitNotify
+cccd -->|no| timeout
+waitNotify --> onTemp
+onTemp --> disconnect
+timeout --> disconnect
+adv --> accept
+accept --> mtuRsp
+mtuRsp --> attFind
+attFind --> cccdAck
+cccdAck --> ntf
+ntf --> term
+boot --> sample
+sample --> pack
+pack --> notify
+scan -> adv
+connect -> accept
+mtu -> mtuRsp
+discover -> attFind
+cccd -> cccdAck
+waitNotify -> ntf
+pack -> ntf
+disconnect -> term

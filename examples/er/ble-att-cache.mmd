@@ -1,0 +1,40 @@
+erDiagram
+  CONNECTION ||--|| GATT_DB : caches
+  GATT_DB ||--o{ SERVICE : contains
+  SERVICE ||--o{ CHARACTERISTIC : contains
+  CHARACTERISTIC ||--o{ DESCRIPTOR : contains
+  CHARACTERISTIC ||--o{ VALUE_CACHE : last
+  CONNECTION ||--o{ SUBSCRIPTION : notifies
+
+  CONNECTION {
+    uint16 handle PK
+    uint8 role
+    uint16 mtu
+  }
+  SERVICE {
+    uint16 start PK
+    uint16 end
+    string uuid
+  }
+  CHARACTERISTIC {
+    uint16 value_handle PK
+    uint16 decl_handle
+    uint8 properties
+    string uuid
+  }
+  DESCRIPTOR {
+    uint16 handle PK
+    string uuid
+    blob value
+  }
+  VALUE_CACHE {
+    uint16 handle PK
+    blob last
+    uint32 seq
+  }
+  SUBSCRIPTION {
+    uint16 conn PK
+    uint16 cccd
+    bool notify
+    bool indicate
+  }

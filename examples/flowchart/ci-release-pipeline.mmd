@@ -1,0 +1,18 @@
+%% CI/CD with parallel jobs, fail paths, and artifact promotion.
+flowchart TD
+  Push[git push main] --> Lint[eslint + typecheck]
+  Push --> Unit[unit tests]
+  Push --> Visual[verify:visual]
+  Lint --> Gate{all green?}
+  Unit --> Gate
+  Visual --> Gate
+  Gate -->|no| Fail[block merge]
+  Gate -->|yes| Pack[npm pack]
+  Pack --> SBOM[generate SBOM]
+  Pack --> Sign[cosign sign]
+  SBOM --> Rel{tag vX.Y.Z?}
+  Sign --> Rel
+  Rel -->|no| Snapshot[GitHub snapshot]
+  Rel -->|yes| GH[GitHub Release]
+  GH --> NPM[npm publish --access public]
+  NPM --> Docs[deploy md-docs site]

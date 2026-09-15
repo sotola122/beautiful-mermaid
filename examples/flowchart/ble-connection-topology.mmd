@@ -1,0 +1,36 @@
+%% BLE central/peripheral topology with nested subgraphs and cross-links.
+flowchart LR
+  subgraph Central [Phone Gateway]
+    AppL[App Flutter]
+    StackC[Host stack]
+    HCI[HCI UART]
+    AppL --> StackC --> HCI
+  end
+
+  subgraph Air [2.4 GHz]
+    Adv((ADV_IND))
+    Conn((CONNECTED))
+    Adv -.-> Conn
+  end
+
+  subgraph P1 [Sensor A nRF52840]
+    SoftA[SoftDevice]
+    AppA[env-sensor FW]
+    SoftA --- AppA
+  end
+
+  subgraph P2 [Sensor B RP2040]
+    SoftB[BTstack]
+    AppB[power-meter FW]
+    SoftB --- AppB
+  end
+
+  HCI --> Adv
+  HCI --> Conn
+  Adv --- SoftA
+  Adv --- SoftB
+  Conn --- SoftA
+  Conn --- SoftB
+
+  AppA -->|notify 0x2A6E| StackC
+  AppB -->|notify 0x2A19| StackC

@@ -1,0 +1,48 @@
+%% I2C burst read of SHT40 with clock stretch and CRC.
+swimlane LR
+lane Mcu "Cortex-M4 I2C master"
+  start[START 0x44 write]
+  cmd[write 0xFD measure]
+  wait[wait 10 ms]
+  restart[RESTART 0x44 read]
+  readN[read 6 bytes]
+  stop([STOP])
+  crc{CRC ok?}
+  retry[retry once]
+lane Bus "I2C bus"
+  sda[SDA falling]
+  ack1[ACK]
+  stretch[SCL stretch]
+  ack2[ACK]
+  data[drive 6 bytes]
+  nack[NACK last]
+lane Sht "SHT40"
+  measure[convert T/RH]
+  hold[hold SCL low]
+  drive[drive SDA]
+  idle([idle])
+start --> cmd
+cmd --> wait
+wait --> restart
+restart --> readN
+readN --> stop
+stop --> crc
+crc -->|no| retry
+retry --> start
+sda --> ack1
+ack1 --> stretch
+stretch --> ack2
+ack2 --> data
+data --> nack
+measure --> hold
+hold --> drive
+drive --> idle
+start -> sda
+cmd -> ack1
+wait -> stretch
+restart -> ack2
+readN -> data
+stop -> nack
+cmd -> measure
+stretch -> hold
+data -> drive

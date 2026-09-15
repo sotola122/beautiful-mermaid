@@ -1,0 +1,43 @@
+%% Complex OTA / DFU decision graph: nested subgraphs, many branches, mixed shapes.
+flowchart TB
+  subgraph Device [Device Cortex-M4]
+    direction TB
+    Boot[Boot ROM] --> App{App valid?}
+    App -->|yes| Run[Run application]
+    App -->|no| Recov[Recovery loader]
+    Run --> Idle([Idle advertising])
+    Idle --> Recv{{GATT DFU write}}
+  end
+
+  subgraph Host [Host CI]
+    direction LR
+    Build[Firmware build] --> Sign[Sign plus hash]
+    Sign --> Pub[Publish MQTT ota/offer]
+  end
+
+  subgraph Transport [Transport]
+    MQTT[MQTT ota/chunk]
+    GATT[BLE ATT Write Cmd]
+    UART[UART SLIP]
+  end
+
+  Recv --> Auth{HMAC valid?}
+  Auth -->|fail| Nack[NACK fail counter]
+  Auth -->|ok| Space{Flash slot free?}
+  Space -->|no| Erase[Erase inactive slot]
+  Erase --> Space
+  Space -->|yes| Xfer[Stream chunks]
+  Pub --> MQTT
+  MQTT --> Xfer
+  GATT --> Xfer
+  UART --> Xfer
+  Xfer --> CRC{CRC32 match?}
+  CRC -->|no| Retry{retries lt 3?}
+  Retry -->|yes| Xfer
+  Retry -->|no| Abort[Abort keep old image]
+  CRC -->|yes| Swap[Swap boot slot]
+  Swap --> Reset((Warm reset))
+  Reset --> Boot
+  Abort --> Idle
+  Nack --> Idle
+  Recov --> UART

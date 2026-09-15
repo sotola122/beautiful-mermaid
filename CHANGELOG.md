@@ -9,6 +9,7 @@ Upstream: lukilabs/beautiful-mermaid@2ac8bbbb060ca0a65a6a21f3200bd99b1587b488 (1
 - `swimlane` / `swimlane-beta` SVG via `registerDiagram`, dedicated `lane` DSL, and ELK.js compound layout
 - `DiagramRenderError` diagnostics
 - Orthogonal `routeEdges` cleanup with `reroutedEdges` stats on the swimlane layout
+- Multi-pattern flowchart / sequence / state / class / ER / XY / swimlane samples under `examples/` (rendered by `src/__tests__/examples.test.ts`)
 
 ### Split out
 - Packet DSL → `@sotola122/wireglyph`

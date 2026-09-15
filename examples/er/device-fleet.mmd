@@ -1,0 +1,59 @@
+erDiagram
+  TENANT ||--o{ SITE : owns
+  SITE ||--o{ DEVICE : hosts
+  DEVICE ||--o{ CERT : has
+  DEVICE ||--o{ TELEMETRY : emits
+  DEVICE ||--o{ COMMAND : receives
+  COMMAND ||--o| ACK : produces
+  DEVICE }o--|| FIRMWARE : runs
+  FIRMWARE ||--o{ RELEASE : tagged
+  USER }o--o{ TENANT : member
+  USER ||--o{ AUDIT : writes
+
+  TENANT {
+    uuid id PK
+    string name
+    string plan
+  }
+  SITE {
+    uuid id PK
+    uuid tenant_id FK
+    string timezone
+  }
+  DEVICE {
+    uuid id PK
+    uuid site_id FK
+    string serial UK
+    string status
+  }
+  CERT {
+    uuid id PK
+    uuid device_id FK
+    blob pem
+    datetime not_after
+  }
+  TELEMETRY {
+    bigint ts PK
+    uuid device_id FK
+    json payload
+  }
+  COMMAND {
+    uuid id PK
+    uuid device_id FK
+    string corr
+    json body
+  }
+  ACK {
+    uuid command_id PK
+    string result
+  }
+  FIRMWARE {
+    uuid id PK
+    string package
+  }
+  RELEASE {
+    uuid id PK
+    uuid firmware_id FK
+    string semver
+    string sha256
+  }

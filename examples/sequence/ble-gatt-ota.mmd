@@ -1,0 +1,45 @@
+sequenceDiagram
+  autonumber
+  actor User
+  participant App as Mobile App
+  participant GAP as BLE GAP
+  participant ATT as ATT / GATT
+  participant DFU as DFU service
+  participant Flash as Internal flash
+  participant Boot as Bootloader
+
+  User->>App: tap "Update firmware"
+  App->>GAP: scan UUID 0xFE59
+  GAP-->>App: ADV_IND (name, RSSI)
+  App->>GAP: CONNECT_IND
+  GAP-->>ATT: MTU exchange (247)
+  App->>ATT: Discover services
+  ATT-->>App: DFU 0xFE59 + CCCD 0x2902
+  App->>ATT: Write CCCD notify
+  App->>DFU: CTRL: START (image size, CRC)
+  DFU->>Flash: erase inactive slot
+  Flash-->>DFU: done
+  DFU-->>App: RSP OK (offset 0)
+
+  loop chunks of 244 bytes
+    App->>DFU: DATA write-cmd
+    DFU->>Flash: program page
+    alt page complete
+      DFU-->>App: notify progress
+    else buffer full
+      DFU-->>App: notify WAIT
+      App->>App: pause 20ms
+    end
+  end
+
+  App->>DFU: CTRL: VALIDATE
+  DFU->>Flash: CRC32
+  alt CRC match
+    DFU->>Boot: set slot B active
+    DFU-->>App: RSP SWAP
+    App->>GAP: disconnect
+    Boot->>Boot: reset into new image
+  else CRC mismatch
+    DFU-->>App: RSP FAIL
+    Note over App,Flash: keep slot A, increment fail counter
+  end

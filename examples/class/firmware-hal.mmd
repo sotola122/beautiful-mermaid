@@ -1,0 +1,49 @@
+classDiagram
+  class IBus {
+    <<interface>>
+    +read(addr, len) bytes
+    +write(addr, data) void
+  }
+  class SpiBus {
+    -cs : Gpio
+    -spi : SpiHw
+    +read(addr, len) bytes
+    +write(addr, data) void
+  }
+  class I2cBus {
+    -addr7 : uint8
+    +read(addr, len) bytes
+    +write(addr, data) void
+  }
+  class Sensor {
+    <<abstract>>
+    #bus : IBus
+    +probe() bool
+    +sample()* Sample
+  }
+  class Sht40 {
+    +sample() Sample
+    +heater(on) void
+  }
+  class Lis2dh {
+    +sample() Sample
+    +setOdr(hz) void
+  }
+  class Sample {
+    +ts : uint64
+    +values : float[]
+  }
+  class DfuSession {
+    -slot : uint8
+    +start(size, crc) Result
+    +write(chunk) Result
+    +validate() Result
+  }
+  IBus <|.. SpiBus
+  IBus <|.. I2cBus
+  Sensor <|-- Sht40
+  Sensor <|-- Lis2dh
+  Sensor o-- IBus
+  Sht40 --> Sample
+  Lis2dh --> Sample
+  DfuSession ..> Sample : logs

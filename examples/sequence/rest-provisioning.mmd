@@ -1,0 +1,31 @@
+sequenceDiagram
+  autonumber
+  actor Tech as Field tech
+  participant UI as Fleet UI
+  participant API as REST API
+  participant DB as Postgres
+  participant MQ as MQTT ACL
+  participant Dev as Device
+
+  Tech->>UI: scan QR (serial)
+  UI->>API: POST /v1/devices {serial, site}
+  API->>DB: INSERT devices
+  DB-->>API: 201 + deviceId
+  API->>MQ: grant pub tel/v1/{id}/#
+  API-->>UI: 201 Location
+
+  par certificate
+    UI->>API: POST /v1/devices/{id}/certs
+    API->>API: issue mTLS
+    API-->>UI: PEM bundle
+  and first-seen
+    Dev->>API: GET /v1/devices/{id} (mTLS)
+    API-->>Dev: 200 config
+    Dev->>MQ: PUBLISH status online
+  end
+
+  alt serial unknown
+    API-->>UI: 404
+  else already claimed
+    API-->>UI: 409 Conflict
+  end

@@ -1,0 +1,43 @@
+%% UDS ReadDTCInformation over ISO-TP (SF, FF, FC, CF).
+swimlane LR
+lane Tester "PC tester"
+  sendSf[send SF 0x19 0x02]
+  recvFf[recv First Frame]
+  sendFc[send Flow Control CTS]
+  recvCf1[recv Consecutive Frame]
+  recvCf2[recv Consecutive Frame]
+  decode([decode DTC list])
+lane Can "CAN bus 500 kbit"
+  arbReq[arb 0x7E0]
+  arbFf[arb 0x7E8 FF]
+  arbFc[arb 0x7E0 FC]
+  arbCf1[arb 0x7E8 CF]
+  arbCf2[arb 0x7E8 CF]
+lane Ecu "ECU application"
+  onUds{UDS 0x19?}
+  packFf[pack First Frame]
+  packCf1[pack CF]
+  packCf2[pack CF]
+  clearTx([clear TX])
+sendSf --> recvFf
+recvFf --> sendFc
+sendFc --> recvCf1
+recvCf1 --> recvCf2
+recvCf2 --> decode
+arbReq --> arbFf
+arbFf --> arbFc
+arbFc --> arbCf1
+arbCf1 --> arbCf2
+onUds -->|yes| packFf
+packFf --> packCf1
+packCf1 --> packCf2
+packCf2 --> clearTx
+sendSf -> arbReq
+arbReq -> onUds
+packFf -> arbFf
+arbFf -> recvFf
+sendFc -> arbFc
+packCf1 -> arbCf1
+arbCf1 -> recvCf1
+packCf2 -> arbCf2
+arbCf2 -> recvCf2

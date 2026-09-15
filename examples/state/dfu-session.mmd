@@ -1,0 +1,27 @@
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Advertising : power-on / reset
+  Advertising --> Connected : CONNECT_IND
+  Connected --> Discovering : MTU ok
+  Discovering --> Ready : CCCD written
+  Ready --> Erasing : CTRL START
+  Erasing --> Streaming : erase done
+  Streaming --> Streaming : DATA chunk
+  Streaming --> Waiting : buffer full
+  Waiting --> Streaming : resume
+  Streaming --> Validating : CTRL VALIDATE
+  Validating --> Swapping : CRC ok
+  Validating --> Failed : CRC fail
+  Swapping --> Rebooting : slot flag set
+  Rebooting --> [*]
+  Failed --> Ready : keep old image
+  Connected --> Idle : disconnect
+  Ready --> Idle : disconnect
+  Streaming --> Idle : abort / timeout
+
+  state Streaming {
+    [*] --> RecvChunk
+    RecvChunk --> ProgramPage
+    ProgramPage --> RecvChunk : more
+    ProgramPage --> [*] : last
+  }

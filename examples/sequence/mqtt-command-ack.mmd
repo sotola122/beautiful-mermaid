@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  participant Cloud as Cloud broker
+  participant GW as Gateway
+  participant Dev as Device
+  participant Act as Actuator
+
+  Cloud->>GW: PUBLISH cmd/v1/{gw}/reboot (QoS1, corr=c-99)
+  GW->>GW: ACL + rate-limit
+  alt device online
+    GW->>Dev: MQTT cmd/v1/{id}/reboot
+    Dev->>Act: assert reset pin
+    Act-->>Dev: ACK
+    Dev->>GW: PUBLISH ack/v1/{id} {ok, corr}
+    GW->>Cloud: PUBLISH ack/v1/{gw} {ok, corr}
+  else device offline
+    GW->>Cloud: PUBLISH ack {error:offline, corr}
+  else timeout 8s
+    GW->>Cloud: PUBLISH ack {error:timeout, corr}
+  end
+
+  opt telemetry continues
+    loop every 5s
+      Dev->>GW: PUBLISH tel/v1/{id}/env
+      GW->>Cloud: fan-out
+    end
+  end
