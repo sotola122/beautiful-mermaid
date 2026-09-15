@@ -1,8 +1,8 @@
 {
-  "name": "beautiful-mermaid",
-  "version": "1.1.3",
+  "name": "@sotola122/beautiful-mermaid",
+  "version": "1.2.0",
   "license": "MIT",
-  "description": "Render Mermaid diagrams as beautiful SVGs or ASCII art. Ultra-fast, fully themeable, zero DOM dependencies.",
+  "description": "Fork of beautiful-mermaid with swimlane-beta SVG. Packet and interface specs live in @sotola122/wireglyph and @sotola122/tessaline.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,33 +10,47 @@
     ".": {
       "bun": "./src/index.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./swimlane": {
+      "bun": "./src/swimlane/index.ts",
+      "import": "./dist/swimlane/index.js",
+      "types": "./dist/swimlane/index.d.ts",
+      "default": "./dist/swimlane/index.js"
     }
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/lukilabs/beautiful-mermaid"
+    "url": "https://github.com/sotola122/beautiful-mermaid"
   },
-  "homepage": "https://github.com/lukilabs/beautiful-mermaid",
+  "homepage": "https://github.com/sotola122/beautiful-mermaid",
   "bugs": {
-    "url": "https://github.com/lukilabs/beautiful-mermaid/issues"
+    "url": "https://github.com/sotola122/beautiful-mermaid/issues"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
   },
   "keywords": [
     "mermaid",
     "diagram",
     "svg",
     "ascii",
-    "flowchart",
-    "sequence-diagram",
-    "class-diagram",
-    "er-diagram",
-    "xychart",
-    "state-diagram",
-    "visualization",
-    "theming"
+    "swimlane"
   ],
   "author": "Craft Docs",
-  "files": ["src/", "dist/", "LICENSE", "README.md"],
+  "contributors": [
+    "sotola122"
+  ],
+  "files": [
+    "dist/",
+    "LICENSE",
+    "NOTICE",
+    "FORK.md",
+    "CHANGELOG.md",
+    "README.md"
+  ],
   "scripts": {
     "test": "bun test src/__tests__/",
     "samples": "bun run index.ts",

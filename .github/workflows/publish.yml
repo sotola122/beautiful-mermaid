@@ -1,34 +1,20 @@
-name: Publish to npm
+name: Publish guard
+
+# This fork must not publish as unscoped `beautiful-mermaid` on npmjs.
+# The published name is `@sotola122/beautiful-mermaid` on GitHub Packages
+# (see package.json publishConfig). Releases from origin should not run the
+# upstream public npm publish workflow.
 
 on:
   release:
     types: [published]
 
 jobs:
-  publish:
+  skip-public-npm:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Setup Node.js (for npm publish)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run tests
-        run: bun test
-
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Refuse unscoped npmjs publish
+        run: |
+          echo "Publish @sotola122/beautiful-mermaid via GitHub Packages."
+          echo "Do not npm publish as unscoped beautiful-mermaid."
+          exit 1

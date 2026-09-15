@@ -1,0 +1,11 @@
+swimlane LR
+lane Client
+  Request
+lane Server
+  Validate
+  Process
+lane Database
+  Query
+Request -> Validate
+Validate -> Query
+Query -> Process

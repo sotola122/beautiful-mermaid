@@ -41,6 +41,18 @@ export interface DiagramColors {
   surface?: string
   /** Node/group stroke color → CSS variable --border */
   border?: string
+
+  /** Optional swimlane chrome. Unset values fall back to surface/border/accent/fg. */
+  swimlane?: SwimlaneTheme
+}
+
+export interface SwimlaneTheme {
+  laneBackground?: string
+  alternateLaneBackground?: string
+  laneBorder?: string
+  laneHeaderBackground?: string
+  laneHeaderText?: string
+  laneSeparator?: string
 }
 
 // ============================================================================

@@ -161,4 +161,8 @@ export interface RenderOptions {
   transparent?: boolean
   /** Enable hover tooltips on chart data points (xychart only). Default: false */
   interactive?: boolean
+  /** Stable prefix for SVG ids (swimlane markers/title/desc). */
+  idPrefix?: string
+  /** Optional swimlane chrome colors. */
+  swimlane?: import("./theme.ts").SwimlaneTheme
 }

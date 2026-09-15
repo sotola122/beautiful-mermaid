@@ -10,6 +10,8 @@
 //   - Sequence diagrams (sequenceDiagram)
 //   - Class diagrams (classDiagram)
 //   - ER diagrams (erDiagram)
+//   - XY charts (xychart-beta)
+//   - Swimlanes (swimlane / swimlane-beta)
 //
 // Theming uses CSS custom properties (--bg, --fg, + optional enrichment).
 // See src/theme.ts for the full variable system.
@@ -20,7 +22,7 @@
 // ============================================================================
 
 export type { RenderOptions, MermaidGraph, PositionedGraph } from './types.ts'
-export type { DiagramColors, ThemeName } from './theme.ts'
+export type { DiagramColors, ThemeName, SwimlaneTheme } from './theme.ts'
 export { fromShikiTheme, THEMES, DEFAULTS } from './theme.ts'
 export { parseMermaid } from './parser.ts'
 export { renderMermaidASCII, renderMermaidAscii } from './ascii/index.ts'
@@ -46,12 +48,29 @@ import { renderErSvg } from './er/renderer.ts'
 import { parseXYChart } from './xychart/parser.ts'
 import { layoutXYChart } from './xychart/layout.ts'
 import { renderXYChartSvg } from './xychart/renderer.ts'
+import { detectExtendedKind, isWireglyphSource } from './detect.ts'
+import { detectRegistered, registerDiagram } from './diagram-registry.ts'
+import { swimlaneDiagramModule } from './swimlane/module.ts'
+import { DiagramRenderError } from './errors.ts'
+
+registerDiagram(swimlaneDiagramModule)
+
+export { DiagramRenderError } from './errors.ts'
+export { registerDiagram } from './diagram-registry.ts'
+export type { DiagramDiagnostic } from './errors.ts'
+export { detectExtendedKind, isWireglyphSource, firstKeywordLine } from './detect.ts'
 
 /**
  * Detect the diagram type from the mermaid source text.
  * Returns the type keyword used for routing to the correct pipeline.
  */
-function detectDiagramType(text: string): 'flowchart' | 'sequence' | 'class' | 'er' | 'xychart' {
+function detectDiagramType(
+  text: string,
+): 'flowchart' | 'sequence' | 'class' | 'er' | 'xychart' | 'swimlane' {
+  if (detectRegistered(text)?.id === 'swimlane' || detectExtendedKind(text) === 'swimlane') {
+    return 'swimlane'
+  }
+
   const firstLine = text.trim().split(/[\n;]/)[0]?.trim().toLowerCase() ?? ''
 
   if (/^xychart(-beta)?\b/.test(firstLine)) return 'xychart'
@@ -77,6 +96,7 @@ function buildColors(options: RenderOptions): DiagramColors {
     muted: options.muted,
     surface: options.surface,
     border: options.border,
+    swimlane: options.swimlane,
   }
 }
 
@@ -116,9 +136,27 @@ export function renderMermaidSVG(
   // Without this, escapeXml() double-encodes them: &lt; → &amp;lt; → literal "&lt;" in SVG.
   text = decodeXML(text)
 
+  if (isWireglyphSource(text)) {
+    const kind = detectExtendedKind(text) ?? 'packet'
+    throw new DiagramRenderError(
+      `${kind} diagrams are rendered by @sotola122/wireglyph, not beautiful-mermaid`,
+      [
+        {
+          code: 'BM_E_ROUTE_WIREGYPH',
+          severity: 'error',
+          message: `${kind} diagrams are rendered by @sotola122/wireglyph`,
+        },
+      ],
+    )
+  }
+
   const colors = buildColors(options)
   const font = options.font ?? 'Inter'
   const transparent = options.transparent ?? false
+  const registered = detectRegistered(text)
+  if (registered) {
+    return registered.render(text, colors, font, transparent, options)
+  }
   const diagramType = detectDiagramType(text)
 
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('%%'))

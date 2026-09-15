@@ -17,6 +17,8 @@
 // ============================================================================
 
 import { parseMermaid } from '../parser.ts'
+import { DiagramRenderError } from '../errors.ts'
+import { detectExtendedKind, isWireglyphSource } from '../detect.ts'
 import { convertToAsciiGraph } from './converter.ts'
 import { createMapping } from './grid.ts'
 import { drawGraph } from './draw.ts'
@@ -117,6 +119,28 @@ export function renderMermaidASCII(
 
   // Merge user theme with defaults
   const theme: AsciiTheme = { ...DEFAULT_ASCII_THEME, ...options.theme }
+
+  const unsupported = detectExtendedKind(text)
+  if (unsupported === 'swimlane' || isWireglyphSource(text)) {
+    const kind =
+      unsupported === 'swimlane'
+        ? 'swimlane'
+        : unsupported === 'registermap'
+          ? 'registermap'
+          : unsupported === 'memorymap'
+            ? 'memorymap'
+            : 'packet'
+    throw new DiagramRenderError(
+      `ASCII rendering is not supported for ${kind}; use @sotola122/wireglyph for packet/register/memory maps`,
+      [
+        {
+          code: 'BM_E_ASCII_UNSUPPORTED',
+          severity: 'error',
+          message: `ASCII rendering is not supported for ${kind}`,
+        },
+      ],
+    )
+  }
 
   const diagramType = detectDiagramType(text)
 

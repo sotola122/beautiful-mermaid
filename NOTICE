@@ -1,0 +1,32 @@
+beautiful-mermaid fork
+======================
+
+This package is a fork of lukilabs/beautiful-mermaid (MIT).
+
+Upstream
+  Repository: https://github.com/lukilabs/beautiful-mermaid
+  Commit:     2ac8bbbb060ca0a65a6a21f3200bd99b1587b488
+  Version:    1.1.3
+  License:    MIT (Copyright (c) 2026 Craft Docs)
+
+GitHub origin for this fork
+  https://github.com/sotola122/beautiful-mermaid
+
+Published npm name
+  @sotola122/beautiful-mermaid
+  GitHub Packages, restricted.
+  Do not publish as the unscoped upstream name `beautiful-mermaid`.
+
+Additional sources
+  Swimlane-beta SVG is this fork's overlay. Packet DSL moved to
+  @sotola122/wireglyph. Interface Spec tables moved to @sotola122/tessaline.
+
+Third-party runtime licenses
+  elkjs     Eclipse Public License 2.0
+  entities  BSD-2-Clause
+
+ASCII rendering in the upstream project is based on mermaid-ascii by
+Alexander Grooff. See README.md.
+
+This fork does not vendor mermaid.org swimlane layout core. The swimlane-beta
+pipeline is an independent limited-profile implementation.

@@ -1,6 +1,23 @@
 <div align="center">
 
-# beautiful-mermaid
+# @sotola122/beautiful-mermaid
+
+Fork origin: [sotola122/beautiful-mermaid](https://github.com/sotola122/beautiful-mermaid)  
+Upstream pin: `lukilabs/beautiful-mermaid@2ac8bbbb060ca0a65a6a21f3200bd99b1587b488` (1.1.3)
+
+This fork keeps the original six diagram types and adds swimlane SVG
+(`swimlane` / `swimlane-beta`) on `renderMermaidSVG`, laid out with ELK.js.
+
+Packet, register, and memory-map diagrams live in `@sotola122/wireglyph`.
+Interface Spec HTML/SVG tables live in `@sotola122/tessaline`.
+
+See `FORK.md` and `CHANGELOG.md`. Published name is scoped; do not publish as unscoped `beautiful-mermaid`.
+
+</div>
+
+---
+
+
 
 **Render Mermaid diagrams as beautiful SVGs or ASCII art**
 

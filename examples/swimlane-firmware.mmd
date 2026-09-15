@@ -1,0 +1,14 @@
+swimlane LR
+lane Device
+  Boot
+  Connect
+  Apply
+lane Server
+  Authenticate
+  CheckVersion
+  Download
+Boot -> Connect
+Connect -> Authenticate
+Authenticate -> CheckVersion
+CheckVersion -> Download
+Download -> Apply
