@@ -69,6 +69,29 @@ export interface RoutedEdge extends SwimlaneEdge {
   readonly labelBox?: Box;
 }
 
+/** Node face a swimlane edge attaches to. */
+export type SwimlaneSide = "N" | "S" | "E" | "W";
+
+/**
+ * Pre-computed routing intent for one edge.
+ *
+ * `from`/`to` are handed to ELK as fixed-side port constraints before layout
+ * runs; `fromPort`/`toPort` are the port positions ELK resolved for them and
+ * `elkPoints` is ELK's own orthogonal section, used as the primary route.
+ */
+export interface PlannedEdgeRoute {
+  readonly edgeId: string;
+  readonly from: SwimlaneSide;
+  readonly to: SwimlaneSide;
+  readonly feedback: boolean;
+  readonly selfLoop: boolean;
+  readonly fromPort?: { readonly x: number; readonly y: number };
+  readonly toPort?: { readonly x: number; readonly y: number };
+  readonly elkPoints?: readonly { readonly x: number; readonly y: number }[];
+}
+
+export type SwimlaneRoutePlan = readonly PlannedEdgeRoute[];
+
 export interface SwimlaneLayout {
   readonly width: number;
   readonly height: number;
@@ -77,4 +100,9 @@ export interface SwimlaneLayout {
   readonly nodes: readonly PositionedNode[];
   readonly edges: readonly RoutedEdge[];
   readonly reroutedEdges: number;
+  /**
+   * Edges that could not be given a free track and had to share part of an
+   * existing one. Zero for every sample; non-zero only for very dense graphs.
+   */
+  readonly overlappingEdges?: number;
 }

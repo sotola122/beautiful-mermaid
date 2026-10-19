@@ -323,7 +323,7 @@ export function parseSwimlane(source: string): SwimlaneParseResult {
           const props = Object.fromEntries(
             styleMatch[2]!.split(",").map((part) => {
               const [k, ...rest] = part.split(":");
-              return [k.trim(), rest.join(":").trim()];
+              return [(k ?? "").trim(), rest.join(":").trim()];
             }),
           );
           for (const key of Object.keys(props)) {

@@ -7,7 +7,13 @@ import {
   renderMultilineTextWithBackground,
 } from "../multiline-utils.ts";
 import { measureMultilineText } from "../text-metrics.ts";
-import type { Box, PositionedLane, PositionedNode, SwimlaneLayout } from "./types.ts";
+import type {
+  Box,
+  PositionedLane,
+  PositionedNode,
+  RoutedEdge,
+  SwimlaneLayout,
+} from "./types.ts";
 
 function laneFill(colors: DiagramColors, index: number): string {
   const theme = colors.swimlane;
@@ -58,6 +64,25 @@ function arrowDefs(markerId: string): string {
     `<defs><marker id="${escapeXml(markerId)}" markerWidth="${w}" markerHeight="${h}" refX="${w - 1}" refY="${h / 2}" orient="auto">` +
     `<polygon points="0 0, ${w} ${h / 2}, 0 ${h}" ${style} /></marker></defs>`
   );
+}
+
+/**
+ * Bounding box of the background rectangle the renderer paints behind an edge
+ * label. Shared with the layout so the viewBox can be grown around it.
+ */
+export function edgeLabelBounds(edge: RoutedEdge): Box | undefined {
+  if (!edge.label) return undefined;
+  const metrics = measureMultilineText(edge.label, FONT_SIZES.edgeLabel, 500);
+  const center = edge.labelBox
+    ? { x: edge.labelBox.x + edge.labelBox.width / 2, y: edge.labelBox.y + edge.labelBox.height / 2 }
+    : edge.points[Math.floor(edge.points.length / 2)];
+  if (!center) return undefined;
+  return {
+    x: center.x - (metrics.width + 16) / 2,
+    y: center.y - (metrics.height + 16) / 2,
+    width: metrics.width + 16,
+    height: metrics.height + 16,
+  };
 }
 
 export function renderSwimlaneSvg(
