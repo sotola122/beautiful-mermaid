@@ -8,6 +8,8 @@
 import { describe, it, expect } from 'bun:test'
 import { parseSequenceDiagram } from '../sequence/parser.ts'
 import { layoutSequenceDiagram } from '../sequence/layout.ts'
+import { measureTextWidth } from '../text-metrics.ts'
+import { FONT_SIZES, FONT_WEIGHTS } from '../styles.ts'
 
 /** Helper: parse and layout a sequence diagram from source lines */
 function layout(source: string) {
@@ -742,6 +744,50 @@ describe('sequence layout – note positioning', () => {
       expect(note.x + note.width).toBeLessThanOrEqual(result.width)
       expect(note.y).toBeGreaterThanOrEqual(0)
       expect(note.y + note.height).toBeLessThanOrEqual(result.height)
+    }
+  })
+})
+
+describe('sequence layout – horizontal bounds include painted labels', () => {
+  it('widens for a centred message label that overhangs both actors', () => {
+    const result = layout(`sequenceDiagram
+      participant A
+      participant B
+      A->>B: すべてのExtポートをLowレベルに設定する長いラベル`)
+    const msg = result.messages[0]!
+    const midX = (msg.x1 + msg.x2) / 2
+    const labelWidth = measureTextWidth(msg.label!, FONT_SIZES.edgeLabel, FONT_WEIGHTS.edgeLabel)
+    expect(midX - labelWidth / 2).toBeGreaterThanOrEqual(0)
+    expect(result.width).toBeGreaterThanOrEqual(midX + labelWidth / 2)
+  })
+
+  it('widens for a block tab that is wider than its block', () => {
+    const result = layout(`sequenceDiagram
+      participant A
+      participant B
+      alt とても長い分岐ラベルがここに入る
+        A->>B: ok
+      end`)
+    const block = result.blocks[0]!
+    const tabText = `${block.type} [${block.label ?? ''}]`
+    const tabWidth = measureTextWidth(tabText, FONT_SIZES.edgeLabel, FONT_WEIGHTS.groupHeader) + 16
+    expect(result.width).toBeGreaterThanOrEqual(block.x + tabWidth)
+  })
+
+  it('lets a left overhanging label shift the whole diagram instead of clipping', () => {
+    const result = layout(`sequenceDiagram
+      participant A
+      participant B
+      Note left of A: 左に長くはみ出す注記テキスト
+      A->>B: ok`)
+    for (const note of result.notes) {
+      expect(note.x).toBeGreaterThanOrEqual(0)
+    }
+    for (const msg of result.messages) {
+      const width = measureTextWidth(msg.label ?? '', FONT_SIZES.edgeLabel, FONT_WEIGHTS.edgeLabel)
+      const midX = (msg.x1 + msg.x2) / 2
+      expect(midX - width / 2).toBeGreaterThanOrEqual(-0.5)
+      expect(midX + width / 2).toBeLessThanOrEqual(result.width + 0.5)
     }
   })
 })

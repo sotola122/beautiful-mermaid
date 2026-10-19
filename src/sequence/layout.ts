@@ -2,6 +2,19 @@ import type { SequenceDiagram, PositionedSequenceDiagram, PositionedActor, Lifel
 import type { RenderOptions } from '../types.ts'
 import { estimateTextWidth, FONT_SIZES, FONT_WEIGHTS } from '../styles.ts'
 
+/**
+ * Widest rendered line of a (possibly multi-line) label.
+ *
+ * `renderMultilineText` splits on newlines and draws each line separately, so
+ * measuring the whole string would sum the lines and overestimate.
+ */
+function maxLabelLineWidth(label: string, fontSize: number, fontWeight: number): number {
+  return Math.max(
+    0,
+    ...label.split('\n').map((line) => estimateTextWidth(line, fontSize, fontWeight)),
+  )
+}
+
 // ============================================================================
 // Sequence diagram layout engine
 //
@@ -361,16 +374,29 @@ export function layoutSequenceDiagram(
     globalMinX = Math.min(globalMinX, n.x)
     globalMaxX = Math.max(globalMaxX, n.x + n.width)
   }
-  // Include self-message labels in bounding box — they extend to the right of the actor
-  // and could be clipped if not accounted for in the SVG width
+  // Labels are painted with text-anchor rules that the actor boxes do not
+  // imply: a centred message label can stick out past both participants, and a
+  // block tab is left-aligned at the block edge with its own measured width.
+  // Without accounting for them the SVG clips the text at the viewBox edge.
   for (const m of messages) {
-    if (m.isSelf && m.label) {
+    if (!m.label) continue
+    const labelWidth = maxLabelLineWidth(m.label, FONT_SIZES.edgeLabel, FONT_WEIGHTS.edgeLabel)
+    if (m.isSelf) {
       const loopW = 30 // matches renderer loopW
       const labelPadding = 8
       const labelLeft = m.x1 + loopW + labelPadding
-      const labelWidth = estimateTextWidth(m.label, FONT_SIZES.edgeLabel, FONT_WEIGHTS.edgeLabel)
       globalMaxX = Math.max(globalMaxX, labelLeft + labelWidth + 8) // +8 for safety margin
+      continue
     }
+    const midX = (m.x1 + m.x2) / 2
+    globalMinX = Math.min(globalMinX, midX - labelWidth / 2)
+    globalMaxX = Math.max(globalMaxX, midX + labelWidth / 2)
+  }
+  for (const b of blocks) {
+    // The renderer draws `${type} [${label}]` in a left-aligned tab.
+    const tabText = `${b.type}${b.label ? ` [${b.label}]` : ''}`.split('\n')[0] ?? ''
+    const tabWidth = maxLabelLineWidth(tabText, FONT_SIZES.edgeLabel, FONT_WEIGHTS.groupHeader) + 16
+    globalMaxX = Math.max(globalMaxX, b.x + Math.max(b.width, tabWidth))
   }
 
   // If elements extend left of the desired padding, shift everything right
